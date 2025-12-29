@@ -12,14 +12,17 @@ public class MemoryManager {
     public Map<String,Process> processTable = new HashMap<>();
     public int partNum = 0;
     public AllocStrategy allocStrategy;
-    // public List<FreePart> freePartList = new ArrayList<>();
+    // public Queue<Request> requestQueue = new LinkedList<>();
+    public OutStrategy outStrategy;
+    public List<Request> requestList = new ArrayList<>();
+    public Integer requestCount = 0;
 
 
-    public MemoryManager(int totalMemory,AllocStrategy allocStrategy){
+    public MemoryManager(int totalMemory,AllocStrategy allocStrategy,OutStrategy outStrategy){
         this.totalMemory = totalMemory;
         this.allocStrategy = allocStrategy;
+        this.outStrategy = outStrategy;
         this.partitionTable.add(new Partition(partNum++,0,totalMemory));
-        // this.freePartList.add(new FreePart(partNum++,0,totalMemory));
     }
 
     /**
@@ -75,8 +78,16 @@ public class MemoryManager {
             Partition newFreePart = partitionTable.get(partitionTable.size() - 1);
             if(newFreePart.state || newFreePart.size < segment.size){
                 // 如果紧缩后没有空闲块或者空闲大小还是不够
-                System.out.println("空闲空间不足，尝试使用LRU近似方法淘汰段");
-                outSegment();
+                switch (outStrategy){
+                    case FIFO :
+                        System.out.println("空闲空间不足，尝试使用FIFO算法淘汰段");
+                        outSegmentByFIFO();
+                        break;
+                    default:
+                        System.out.println("空闲空间不足，尝试使用LFU算法淘汰段");
+                        outSegmentByLFU();
+                        break;
+                }
                 freePart = choseFreePart(segment);
             }else{
                 freePart = newFreePart;
@@ -87,12 +98,30 @@ public class MemoryManager {
         boolean flag = allocatePartition(freePart, process, segment);
         if(flag){
             System.out.println("分配成功");
+            // 分配成功，将其加入请求集合中
+            requestList.add(requestCount++,request);
+
             return true;
         }else{
             System.out.println("分配失败");
             return false;
         }
 
+    }
+
+    /**
+     * 使用FIFO算法淘汰最先进入的段
+     */
+    private void outSegmentByFIFO() {
+        if(requestList.isEmpty()){
+            System.out.println("内存为空");
+            return;
+        }
+        Request request = requestList.get(0);
+        Process process = processTable.get(request.processName);
+        Segment segment = process.getSegment(request.segNum);
+        System.out.println("淘汰段："+request.processName+"进程的"+request.segNum+"号段");
+        freeSegment(request.processName, segment);
     }
 
     /**
@@ -155,9 +184,9 @@ public class MemoryManager {
     }
 
     /**
-     * 使用LRU近似算法，淘汰内存中访问次数最少的段
+     * 使用LFU算法，淘汰内存中访问次数最少的段
      */
-    private void outSegment() {
+    private void outSegmentByLFU() {
         Segment minVisitSeg = null;
         String minVisitProcessName = null;
 
@@ -185,7 +214,7 @@ public class MemoryManager {
     /**
      * 内存紧缩
      */
-    private int compact() {
+    public int compact() {
         int addr = 0;
         int partCode = 0;
         List<Partition> newPartTable = new ArrayList<>();
@@ -296,10 +325,22 @@ public class MemoryManager {
                     partition.segNum = -1;
                     partition.processName = null;
                     segment.state = false;
+                    segment.visitCount = 0;
+                    segment.start = -1;
+
 
                     // 合并空闲区
                     mergeWithPre(i);
                     mergeWithAfter(i);
+
+                    for (int j = 0; j < requestList.size(); j++) {
+                        Request request = requestList.get(j);
+                        if(request.processName.equals(processName) && request.segNum == segment.segNum){
+                            requestList.remove(j);
+                            requestCount--;
+                        }
+                    }
+
                     return true;
                 }
             }

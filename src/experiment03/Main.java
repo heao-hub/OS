@@ -15,7 +15,7 @@ public class Main {
         while (memoryManager == null) {
             try {
                 int totalMemory = InputValidator.readPositiveInteger("请输入总内存大小(KB，必须为正整数): ");
-                memoryManager = new MemoryManager(totalMemory,AllocStrategy.FIRST_FIT);
+                memoryManager = new MemoryManager(totalMemory,AllocStrategy.FIRST_FIT,OutStrategy.LFU);
             } catch (IllegalArgumentException e) {
                 System.out.println("错误: " + e.getMessage());
                 System.out.println("请重新输入!");
@@ -25,7 +25,7 @@ public class Main {
         while(true){
             showMenu();
 
-            int choice = InputValidator.readIntegerInRange("输入选项: ",0,8);
+            int choice = InputValidator.readIntegerInRange("输入选项: ",0,10);
             // scanner.nextLine();
 
             switch (choice){
@@ -51,6 +51,12 @@ public class Main {
                     freeSegment();
                     break;
                 case 8:
+                    memoryManager.compact();
+                    break;
+                case 9:
+                    setOutStrategy();
+                    break;
+                case 10:
                     doTest();
                     break;
                 case 0:
@@ -69,6 +75,26 @@ public class Main {
 
     }
 
+    /**
+     * 设置淘汰段的策略
+     */
+    private static void setOutStrategy() {
+        System.out.println("当前淘汰策略: " + memoryManager.outStrategy);
+        int strategyChoice = InputValidator.readIntegerInRange("选择淘汰策略 (1-FIFO算法, 2-LFU算法): ",1,2);
+        switch (strategyChoice){
+            case 1:
+                memoryManager.outStrategy = OutStrategy.FIFO;
+                break;
+            default:
+                memoryManager.outStrategy = OutStrategy.LFU;
+        }
+        System.out.println("当前内存淘汰策略为："+memoryManager.outStrategy);
+
+    }
+
+    /**
+     * 回收段
+     */
     private static void freeSegment() {
         memoryManager.displayMemoryStatus();
         String processName = InputValidator.readNonEmptyString("请输入要回收的段所属的进程名称：");
@@ -166,7 +192,8 @@ public class Main {
                 System.out.println("你要添加的段不存在！");
                 return;
             }else if(segment.state){
-                System.out.println("段"+segment+"已存在于内存中，请勿重复添加！");
+                System.out.println(segment);
+                segment.visit();
                 return;
             }
             Request request = new Request(processName,segNum,segment.size);
@@ -203,19 +230,23 @@ public class Main {
         }
 
         System.out.println("======创建进程======");
+        int processCount = InputValidator.readPositiveInteger("请输入要创建的进程的个数(必须是正整数)：");
+        for (int i = 0; i < processCount; i++) {
+            String processName = InputValidator.readNonEmptyString("请输入要创建的进程"+(i+1)+"的名称：");
 
-        String processName = InputValidator.readNonEmptyString("请输入要创建的进程名：");
+            int segCount = InputValidator.readPositiveInteger("请输入进程"+(i+1)+"的段数：");
 
-        int segCount = InputValidator.readPositiveInteger("请输入进程的段数：");
+            Process process = new Process(processName,segCount);
 
-        Process process = new Process(processName,segCount);
+            for(int j = 0;j < segCount;j++){
+                int size = InputValidator.readNonNegativeInteger("请输入进程"+(i+1)+"的段"+j+"的大小(KB，必须为正整数)：");
+                process.setSegment(j,new Segment(j,size));
+            }
 
-        for(int i = 0;i < segCount;i++){
-            int size = InputValidator.readNonNegativeInteger("请输入段"+i+"的大小(KB，必须为正整数)：");
-            process.setSegment(i,new Segment(i,size));
+            memoryManager.addProcess(process);
+
         }
 
-        memoryManager.addProcess(process);
 
     }
 
@@ -229,7 +260,9 @@ public class Main {
         System.out.println("5. 显示内存利用率");
         System.out.println("6. 显示进程信息");
         System.out.println("7. 回收段内存");
-        System.out.println("8. 测试模式");
+        System.out.println("8. 内存紧缩");
+        System.out.println("9. 设置淘汰段的策略");
+        System.out.println("10. 测试模式");
         System.out.println("0. 退出");
     }
 

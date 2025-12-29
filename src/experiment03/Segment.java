@@ -21,7 +21,7 @@ public class Segment {
     public Segment(int segNum,int size){
         this.segNum = segNum;
         this.size = size;
-        this.start = 0;
+        this.start = -1;
         this.visitCount = 0;
         this.state = false;
     }
