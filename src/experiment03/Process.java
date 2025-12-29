@@ -1,7 +1,7 @@
 package experiment03;
 
-import java.util.ArrayList;
-import java.util.List;
+
+import java.util.*;
 
 /**
  * 进程
@@ -14,9 +14,7 @@ public class Process {
         this.processName = processName;
         this.segTable = new ArrayList<>();
 
-        for(int i = 0; i < segTable.size(); i++){
-            this.segTable.add(segTable.get(i));
-        }
+        this.segTable.addAll(segTable);
     }
 
     public Process(String processName,int segCount){
@@ -33,12 +31,8 @@ public class Process {
      * @param segNum
      * @param seg
      */
-    public void setSegment(int segNum, Segment seg) {
-        for (Segment segment : segTable) {
-            if (segment.segNum == segNum) {
-                segment = seg;
-            }
-        }
+    public void setSegment(int index, Segment seg) {
+        segTable.set(index,seg);
     }
 
     public Segment getSegment(int segNum) {

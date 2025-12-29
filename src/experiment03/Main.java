@@ -14,8 +14,7 @@ public class Main {
         // 初始化内存管理器
         while (memoryManager == null) {
             try {
-                System.out.print("请输入总内存大小(KB，必须为正整数): ");
-                int totalMemory = scanner.nextInt();
+                int totalMemory = InputValidator.readPositiveInteger("请输入总内存大小(KB，必须为正整数): ");
                 memoryManager = new MemoryManager(totalMemory,AllocStrategy.FIRST_FIT);
             } catch (IllegalArgumentException e) {
                 System.out.println("错误: " + e.getMessage());
@@ -26,8 +25,8 @@ public class Main {
         while(true){
             showMenu();
 
-            int choice = scanner.nextInt();
-            scanner.nextLine();
+            int choice = InputValidator.readIntegerInRange("输入选项: ",0,8);
+            // scanner.nextLine();
 
             switch (choice){
                 case 1:
@@ -43,13 +42,16 @@ public class Main {
                     memoryManager.displayMemoryStatus();
                     break;
                 case 5:
-                    System.out.printf("内存利用率: %.2f%%\n", memoryManager.getMemoryUtilization());
+                    System.out.printf("内存利用率: %.2f%%\n", memoryManager.getMemoryUtilization()*100);
                     break;
                 case 6:
                     displayProcess();
                     break;
                 case 7:
                     freeSegment();
+                    break;
+                case 8:
+                    doTest();
                     break;
                 case 0:
                     System.out.println("程序退出。");
@@ -69,20 +71,22 @@ public class Main {
 
     private static void freeSegment() {
         memoryManager.displayMemoryStatus();
-        System.out.println("请输入要回收的段所属的进程名称：");
-        String processName = scanner.nextLine();
+        String processName = InputValidator.readNonEmptyString("请输入要回收的段所属的进程名称：");
 
         Process process = memoryManager.getProcess(processName);
         if(process == null){
             System.out.println("您输入的进程信息不存在！");
             return;
         }
-        System.out.println("请输入你要回收的段的段号：");
-        int segNum = scanner.nextInt();
+
+        int segNum = InputValidator.readNonNegativeInteger("请输入你要回收的段的段号：");
 
         Segment segment = process.getSegment(segNum);
         if(segment == null){
             System.out.println("你要回收的段不存在！");
+            return;
+        }else if(! segment.state){
+            System.out.println("你要回收的段不在内存中，无需回收！");
             return;
         }
         boolean b = memoryManager.freeSegment(processName, segment);
@@ -98,8 +102,7 @@ public class Main {
      * 显示进程信息
      */
     private static void displayProcess() {
-        System.out.println("请输入你要查看的进程名称：");
-        String processName = scanner.nextLine();
+        String processName = InputValidator.readNonEmptyString("请输入你要查看的进程名称：");
         Process process = memoryManager.getProcess(processName);
         if(process == null){
             System.out.println("您输入的进程信息不存在！");
@@ -113,8 +116,7 @@ public class Main {
      */
     private static void setAllocStrategy() {
         System.out.println("当前分配策略: " + memoryManager.allocStrategy);
-        System.out.println("选择分配策略 (1-最先适应, 2-最佳适应, 3-最坏适应): ");
-        int strategyChoice = scanner.nextInt();
+        int strategyChoice = InputValidator.readIntegerInRange("选择分配策略 (1-最先适应, 2-最佳适应, 3-最坏适应): ",1,3);
         switch (strategyChoice){
             case 1:
                 memoryManager.allocStrategy = AllocStrategy.FIRST_FIT;
@@ -142,13 +144,11 @@ public class Main {
 
         System.out.println("======申请段空间======");
 
-        System.out.println("请选择：1--为已存在的进程的段申请空间  2--为不存在的进程的段申请空间");
-        int choice = scanner.nextInt();
-        scanner.nextLine();
+        int choice = InputValidator.readIntegerInRange("请选择(1--为已存在的进程的段申请空间  2--为不存在的进程的段申请空间):",1,2);
+        // scanner.nextLine();
 
         if(choice == 1){
-            System.out.println("请输入段所属的进程名：");
-            String processName = scanner.nextLine();
+            String processName = InputValidator.readNonEmptyString("请输入段所属的进程名：");
 
             Process process = memoryManager.getProcess(processName);
 
@@ -158,21 +158,26 @@ public class Main {
             }
             System.out.println(process.toString());
 
-            System.out.println("请选择要加入内存的段号：");
-            int segNum = scanner.nextInt();
-            scanner.nextLine();
+            int segNum = InputValidator.readNonNegativeInteger("请选择要加入内存的段号：");
+            // scanner.nextLine();
 
             Segment segment = process.getSegment(segNum);
+            if(segment == null){
+                System.out.println("你要添加的段不存在！");
+                return;
+            }else if(segment.state){
+                System.out.println("段"+segment+"已存在于内存中，请勿重复添加！");
+                return;
+            }
             Request request = new Request(processName,segNum,segment.size);
             memoryManager.allocateMemeory(request);
+            memoryManager.displayMemoryStatus();
         }else if(choice == 2){
-            System.out.println("请输入要创建的进程名：");
-            String processName = scanner.nextLine();
+            String processName = InputValidator.readNonEmptyString("请输入段所属的进程名：");
 
-            System.out.println("请输入要加入内存的段号：");
-            int segNum = scanner.nextInt();
-            System.out.println("请输入段"+segNum+"的大小(单位为KB)：");
-            int size = scanner.nextInt();
+            int segNum = InputValidator.readNonNegativeInteger("请选择要加入内存的段号：");
+            int size = InputValidator.readNonNegativeInteger("请输入段"+segNum+"的大小(KB，必须为正整数)：");
+
             List<Segment> segmentList = new ArrayList<>();
             segmentList.add(new Segment(segNum,size));
             Process process = new Process(processName,segmentList);
@@ -180,6 +185,8 @@ public class Main {
 
             Request request = new Request(processName,segNum,size);
             memoryManager.allocateMemeory(request);
+
+            memoryManager.displayMemoryStatus();
         }else{
             System.out.println("无效输入！");
         }
@@ -197,17 +204,14 @@ public class Main {
 
         System.out.println("======创建进程======");
 
-        System.out.println("请输入要创建的进程名：");
-        String processName = scanner.nextLine();
+        String processName = InputValidator.readNonEmptyString("请输入要创建的进程名：");
 
-        System.out.println("请输入进程的段数：");
-        int segCount = scanner.nextInt();
+        int segCount = InputValidator.readPositiveInteger("请输入进程的段数：");
 
         Process process = new Process(processName,segCount);
 
         for(int i = 0;i < segCount;i++){
-            System.out.println("请输入段"+i+"的大小：");
-            int size = scanner.nextInt();
+            int size = InputValidator.readNonNegativeInteger("请输入段"+i+"的大小(KB，必须为正整数)：");
             process.setSegment(i,new Segment(i,size));
         }
 
@@ -225,31 +229,29 @@ public class Main {
         System.out.println("5. 显示内存利用率");
         System.out.println("6. 显示进程信息");
         System.out.println("7. 回收段内存");
+        System.out.println("8. 测试模式");
         System.out.println("0. 退出");
-        System.out.print("输入选项: ");
     }
 
-    private void doTest(){
-        MemoryManager mm = new MemoryManager(100, AllocStrategy.FIRST_FIT);
+    private static void doTest(){
 
-        Process p1 = new Process("P1", 2);
+        Process p1 = new Process("p1", 2);
         p1.setSegment(0, new Segment(0, 20));
-        p1.setSegment(1, new Segment(1, 30));
+        p1.setSegment(1, new Segment(1, 10));
 
-        Process p2 = new Process("P2", 1);
+        Process p2 = new Process("p2", 2);
         p2.setSegment(0, new Segment(0, 40));
+        p2.setSegment(1, new Segment(1, 40));
 
-        mm.addProcess(p1);
-        mm.addProcess(p2);
+        memoryManager.addProcess(p1);
+        memoryManager.addProcess(p2);
 
-        mm.allocateMemeory(new Request("P1", 0, 20));
-        mm.allocateMemeory(new Request("P1", 1, 30));
-        mm.allocateMemeory(new Request("P2", 0, 40));
+        memoryManager.allocateMemeory(new Request("p1", 0, 20));
+        memoryManager.allocateMemeory(new Request("p1", 1, 10));
+        memoryManager.allocateMemeory(new Request("p2", 0, 40));
 
-        mm.displayMemoryStatus();
+        memoryManager.displayMemoryStatus();
 
-        System.out.println("再次请求，触发淘汰：");
-        mm.allocateMemeory(new Request("P2", 0, 40));
-        mm.displayMemoryStatus();
+
     }
 }

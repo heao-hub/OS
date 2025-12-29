@@ -53,7 +53,17 @@ public class MemoryManager {
      */
     public boolean allocateMemeory(Request request){
         Process process = processTable.get(request.processName);
+        if (process == null) {
+            System.out.println("错误：进程 " + request.processName + " 不存在！");
+            return false;
+        }
+
         Segment segment = process.getSegment(request.segNum);
+
+        if (segment == null) {
+            System.out.println("错误：进程 " + request.processName + " 中不存在段号 " + request.segNum);
+            return false;
+        }
 
         // 根据分配策略选择合适的空闲块
         Partition freePart = choseFreePart(segment);
@@ -63,8 +73,8 @@ public class MemoryManager {
         while(freePart == null){
             partNum = compact();
             Partition newFreePart = partitionTable.get(partitionTable.size() - 1);
-            if(newFreePart.size < segment.size){
-                // 如果紧缩后空闲大小还是不够
+            if(newFreePart.state || newFreePart.size < segment.size){
+                // 如果紧缩后没有空闲块或者空闲大小还是不够
                 System.out.println("空闲空间不足，尝试使用LRU近似方法淘汰段");
                 outSegment();
                 freePart = choseFreePart(segment);
@@ -187,6 +197,11 @@ public class MemoryManager {
                 np.state = true;
                 np.segNum = partition.segNum;
                 np.processName = partition.processName;
+
+                Process process = getProcess(partition.processName);
+                Segment segment = process.getSegment(partition.segNum);
+                segment.start = addr;
+
                 newPartTable.add(np);
                 addr += partition.size;
             }
@@ -268,7 +283,7 @@ public class MemoryManager {
 
         for (int i = 0; i < partitionTable.size(); i++) {
             Partition partition = partitionTable.get(i);
-            if(partition.processName.equals(processName)){
+            if(partition.processName != null && partition.processName.equals(processName)){
                 if(partition.segNum == segment.segNum){
                     // 找到进程对应的段
                     // 如果段在外存中，那么提示重复回收
@@ -304,8 +319,7 @@ public class MemoryManager {
             Partition next = partitionTable.get(index + 1);
 
             if(!current.state && !next.state){
-
-                current.size += current.size;
+                current.size += next.size;
                 partitionTable.remove(index+1);
                 index++;
             }else{
