@@ -276,11 +276,21 @@ public class Main {
         p2.setSegment(0, new Segment(0, 40));
         p2.setSegment(1, new Segment(1, 40));
 
+
+        Process p3 = new Process("p3", 5);
+        p3.setSegment(0, new Segment(0, 50));
+        p3.setSegment(1, new Segment(1, 5));
+        p3.setSegment(2, new Segment(2, 1));
+        p3.setSegment(3, new Segment(3, 2));
+        p3.setSegment(4, new Segment(4, 3));
+
         memoryManager.addProcess(p1);
         memoryManager.addProcess(p2);
+        memoryManager.addProcess(p3);
 
         memoryManager.allocateMemeory(new Request("p1", 0, 20));
         memoryManager.allocateMemeory(new Request("p1", 1, 10));
+        memoryManager.allocateMemeory(new Request("p3", 4, 3));
         memoryManager.allocateMemeory(new Request("p2", 0, 40));
 
         memoryManager.displayMemoryStatus();
